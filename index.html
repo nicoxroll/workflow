@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0" />
+    <title>ServiYa - Dark Mode</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['monospace'],
+            },
+            colors: {
+              black: '#000000',
+              white: '#ffffff',
+              zinc: {
+                800: '#27272a',
+                900: '#18181b',
+              }
+            }
+          }
+        }
+      }
+    </script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <!-- Leaflet CSS for the map -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+    <style>
+      body { 
+        font-family: 'Inter', sans-serif; 
+        background-color: #000000; 
+        color: #ffffff;
+      }
+      /* Custom Scrollbar for sleek look */
+      ::-webkit-scrollbar {
+        width: 4px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #000;
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #333;
+      }
+      .no-scrollbar::-webkit-scrollbar { display: none; }
+      .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+      
+      /* Utilities */
+      .glass-sharp {
+        background: rgba(0, 0, 0, 0.8);
+        backdrop-filter: blur(8px);
+        border: 1px solid rgba(255, 255, 255, 0.15);
+      }
+      
+      /* Leaflet Customization for B&W Theme */
+      .leaflet-container {
+        background: #000 !important;
+        font-family: 'Inter', sans-serif;
+      }
+      .leaflet-popup-content-wrapper, .leaflet-popup-tip {
+        background: #000 !important;
+        color: #fff !important;
+        border: 1px solid #fff;
+        border-radius: 0 !important;
+        box-shadow: none !important;
+      }
+      .leaflet-popup-content {
+        margin: 8px 12px !important;
+        font-size: 10px !important;
+        text-transform: uppercase;
+        font-weight: bold;
+      }
+      .leaflet-control-zoom, .leaflet-control-attribution {
+        display: none !important; /* Minimalist: hide controls */
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react-dom/": "https://esm.sh/react-dom@^19.2.1/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.559.0",
+    "react": "https://esm.sh/react@^19.2.1",
+    "react/": "https://esm.sh/react@^19.2.1/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.32.0",
+    "leaflet": "https://esm.sh/leaflet@1.9.4"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
