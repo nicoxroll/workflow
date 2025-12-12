@@ -126,10 +126,7 @@ const MOCK_CHATS: ChatSession[] = [
     { id: 'c2', orderId: 'old_1', participants: 'María G.', lastMessage: 'Gracias por el servicio!', lastTimestamp: Date.now() - 86400000, unreadCount: 0 }
 ];
 
-const MOCK_ADDRESSES: SavedAddress[] = [
-    { id: 'a1', name: 'Casa', address: 'Av. Corrientes 1234', coordinates: { x: -34.6037, y: -58.3816 } },
-    { id: 'a2', name: 'Oficina', address: 'Leandro N. Alem 800', coordinates: { x: -34.5950, y: -58.3700 } }
-];
+const MOCK_ADDRESSES: SavedAddress[] = [];
 
 const App = () => {
   const [role, setRole] = useState<UserRole>(UserRole.CLIENT);
@@ -203,14 +200,21 @@ const App = () => {
   };
 
   const handleAddAddress = (name: string, address: string) => {
-      // In a real app, we would geocode this address. Here we mock it slightly offset from center
+      // Logic for adding a new address
+      // Use clientLocation as the base for the new address (simulating we found it near the user)
+      // Fallback to DEFAULT_CENTER if clientLocation has issues (though it shouldn't)
+      const baseLat = !isNaN(clientLocation.lat) ? clientLocation.lat : DEFAULT_CENTER[0];
+      const baseLng = !isNaN(clientLocation.lng) ? clientLocation.lng : DEFAULT_CENTER[1];
+
       const newAddr: SavedAddress = {
           id: `addr_${Date.now()}`,
           name,
           address,
           coordinates: { 
-              x: DEFAULT_CENTER[0] + (Math.random() - 0.5) * 0.01, 
-              y: DEFAULT_CENTER[1] + (Math.random() - 0.5) * 0.01 
+              // Create a small random offset to simulate that "Geocoding" found the specific street number nearby
+              // This ensures the marker appears close to where the user is looking
+              x: baseLat + (Math.random() - 0.5) * 0.002, 
+              y: baseLng + (Math.random() - 0.5) * 0.002 
           }
       };
       setSavedAddresses(prev => [...prev, newAddr]);
@@ -438,6 +442,8 @@ const App = () => {
                 isCreatingRequest={isCreatingRequest}
                 onSetIsCreatingRequest={setIsCreatingRequest}
                 savedAddresses={savedAddresses}
+                clientLocation={clientLocation}
+                onUpdateLocation={setClientLocation}
               />
           )}
           {view === 'orders' && (

@@ -27,9 +27,18 @@ export const TrackingView: React.FC<{
         if (!mapObj.current) return;
         const map = mapObj.current;
         const start = trackingOrder.clientCoordinates;
+        
+        // Safety check for valid coordinates
+        if (isNaN(start.x) || isNaN(start.y)) {
+             console.error("TrackingView: Invalid coordinates", start);
+             return;
+        }
+
         // Find provider coordinates
         const provider = providers.find(p => p.id === trackingOrder.providerId);
         const end = provider ? provider.coordinates : { x: start.x + 0.01, y: start.y + 0.01 }; // Mock if not found
+        
+        if (isNaN(end.x) || isNaN(end.y)) return;
 
         // Fit bounds
         const bounds = L.latLngBounds([start.x, start.y], [end.x, end.y]);
@@ -37,7 +46,7 @@ export const TrackingView: React.FC<{
 
         // Add markers
         L.marker([start.x, start.y], { icon: L.divIcon({ html: `<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white"></div>`}) }).addTo(map);
-        L.marker([end.x, end.y], { icon: L.divIcon({ html: `<div class="w-8 h-8 bg-black text-white border border-white flex items-center justify-center rounded-sm"><svg ...>...</svg></div>`}) }).addTo(map);
+        L.marker([end.x, end.y], { icon: L.divIcon({ html: `<div class="w-8 h-8 bg-black text-white border border-white flex items-center justify-center rounded-sm"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>`}) }).addTo(map);
 
         // Simple line
         L.polyline([[start.x, start.y], [end.x, end.y]], { color: 'white', weight: 2, dashArray: '5, 10' }).addTo(map);

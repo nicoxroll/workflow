@@ -2,7 +2,7 @@
 import React, { useRef, useEffect, useState } from 'react';
 import { 
   Wrench, Zap, Truck, Sparkles, MapPin, 
-  Crosshair, Filter, LocateFixed, X, 
+  Filter, LocateFixed, X, 
   ArrowRightCircle, ArrowLeft, Send, Check,
   CircleDollarSign, Eye, MessageCircle, Hand, Trash2, Star, User, ChevronDown
 } from 'lucide-react';
@@ -10,7 +10,7 @@ import L from 'leaflet';
 import { UserRole, ServiceCategory, ProviderStore, ServiceOrder, PublicRequest, RequestApplicant, SavedAddress } from '../../types';
 import { Button, Input, FilterModal } from '../../components/UIComponents';
 
-// Icons SVG strings (Moved from App.tsx)
+// Icons SVG strings
 const ICONS_SVG = {
   plomeria: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/></svg>`,
   electricidad: `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>`,
@@ -31,7 +31,9 @@ const CATEGORIES: ServiceCategory[] = [
   { id: 'limpieza', name: 'Limpieza', icon: 'sparkles' },
 ];
 
+// Helper to safely calculate distance
 const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+  if (isNaN(lat1) || isNaN(lon1) || isNaN(lat2) || isNaN(lon2)) return Infinity;
   const R = 6371e3; // metres
   const q1 = lat1 * Math.PI/180; 
   const q2 = lat2 * Math.PI/180;
@@ -40,6 +42,11 @@ const getDistanceInMeters = (lat1: number, lon1: number, lat2: number, lon2: num
   const a = Math.sin(dq/2) * Math.sin(dq/2) + Math.cos(q1) * Math.cos(q2) * Math.sin(dl/2) * Math.sin(dl/2);
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
   return R * c;
+};
+
+// Helper: Check if coords are valid for Leaflet
+const isValidLatLng = (lat: number | undefined, lng: number | undefined) => {
+    return typeof lat === 'number' && typeof lng === 'number' && !isNaN(lat) && !isNaN(lng);
 };
 
 // Helper for address bar icon
@@ -86,6 +93,8 @@ interface MapViewProps {
   isCreatingRequest: boolean;
   onSetIsCreatingRequest: (val: boolean) => void;
   savedAddresses: SavedAddress[];
+  clientLocation: { lat: number; lng: number };
+  onUpdateLocation: (loc: { lat: number; lng: number }) => void;
 }
 
 export const MapView: React.FC<MapViewProps> = ({
@@ -93,7 +102,7 @@ export const MapView: React.FC<MapViewProps> = ({
   filterCategory, isRequesting, requestDescription,
   onSelectProvider, onSelectOrder, onSelectPublicRequest, onRequestDescriptionChange, onSetIsRequesting,
   onSendRequest, onAcceptOrder, onRejectOrder, onApplyToRequest, onAcceptApplicant, onDeleteRequest, onViewClientProfile, onStartChat, onFilterChange, onAddPublicRequest,
-  onOpenAddressModal, currentAddress, isCreatingRequest, onSetIsCreatingRequest, savedAddresses
+  onOpenAddressModal, currentAddress, isCreatingRequest, onSetIsCreatingRequest, savedAddresses, clientLocation, onUpdateLocation
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -101,7 +110,7 @@ export const MapView: React.FC<MapViewProps> = ({
   const radiusLayerRef = useRef<L.Circle | null>(null);
   
   const [isFilterOpen, setIsFilterOpen] = useState(false);
-  const [clientLocation, setClientLocation] = useState<{lat: number, lng: number}>({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] });
+  const [showPrices, setShowPrices] = useState(false);
   
   const [newReqOffer, setNewReqOffer] = useState('');
   const [newReqDesc, setNewReqDesc] = useState('');
@@ -121,10 +130,9 @@ export const MapView: React.FC<MapViewProps> = ({
        onSetIsCreatingRequest(false);
     });
     
-    // Initial locate
     map.on('locationfound', (e) => {
-        if (currentAddress === "Mi Ubicación Actual" || currentAddress === "Buenos Aires, Centro") {
-            setClientLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
+        if(isValidLatLng(e.latlng.lat, e.latlng.lng)) {
+            onUpdateLocation({ lat: e.latlng.lat, lng: e.latlng.lng });
             map.flyTo(e.latlng, 16);
         }
     });
@@ -134,14 +142,19 @@ export const MapView: React.FC<MapViewProps> = ({
 
   // Update map view when clientLocation changes externally
   useEffect(() => {
-      if (mapInstanceRef.current) {
-          mapInstanceRef.current.setView([clientLocation.lat, clientLocation.lng], 16);
+      if (mapInstanceRef.current && isValidLatLng(clientLocation.lat, clientLocation.lng)) {
+          mapInstanceRef.current.flyTo([clientLocation.lat, clientLocation.lng], 16, {
+              animate: true,
+              duration: 1.5
+          });
       }
   }, [clientLocation]);
 
   const handleCreatePublicRequest = () => {
       if(!mapInstanceRef.current) return;
       const center = mapInstanceRef.current.getCenter();
+      if (!isValidLatLng(center.lat, center.lng)) return;
+
       const cat = CATEGORIES.find(c => c.id === newReqCat) || CATEGORIES[1];
       
       onAddPublicRequest({
@@ -193,19 +206,8 @@ export const MapView: React.FC<MapViewProps> = ({
            radiusLayerRef.current = null;
        }
 
-       // --- ADDRESS MARKERS ---
-       const currentLocationId = 'current_gps';
-       activeIds.add(currentLocationId);
-       const currentLocHtml = `<div class="w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-lg animate-pulse"></div>`;
-       
-       if (currentMarkers[currentLocationId]) {
-           currentMarkers[currentLocationId].setLatLng([clientLocation.lat, clientLocation.lng]);
-           currentMarkers[currentLocationId].setIcon(L.divIcon({ html: currentLocHtml, className: '', iconSize: [16, 16] }));
-       } else {
-           currentMarkers[currentLocationId] = L.marker([clientLocation.lat, clientLocation.lng], { icon: L.divIcon({ html: currentLocHtml, className: '', iconSize: [16, 16] }) }).addTo(map);
-       }
-
        savedAddresses.forEach(addr => {
+           if (!isValidLatLng(addr.coordinates.x, addr.coordinates.y)) return;
            activeIds.add(addr.id);
            const isHome = addr.name.toLowerCase().includes('casa');
            const isWork = addr.name.toLowerCase().includes('trabajo') || addr.name.toLowerCase().includes('oficina');
@@ -230,17 +232,20 @@ export const MapView: React.FC<MapViewProps> = ({
        });
 
        filteredProviders.forEach(prov => {
+          if (!isValidLatLng(prov.coordinates.x, prov.coordinates.y)) return;
           activeIds.add(prov.id);
           const isSelected = selectedProvider?.id === prov.id;
           const svgIcon = (ICONS_SVG as any)[prov.categoryId] || ICONS_SVG.default;
           const isRecommended = myActiveRequestCategories.includes(prov.categoryId);
+          const showPrice = showPrices;
 
           const markerHtml = `
               <div class="relative flex flex-col items-center justify-center group transition-all duration-300 ${isSelected ? 'scale-125 z-50' : ''}">
-                  <div class="w-10 h-10 ${isSelected ? 'bg-white text-black' : (isRecommended ? 'bg-blue-500 text-white animate-pulse shadow-blue-500' : 'bg-black text-white')} border ${isRecommended ? 'border-blue-300' : 'border-white'} flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.4)] rounded-sm">
+                  <div class="w-10 h-10 ${isSelected ? 'bg-white text-black' : (isRecommended ? 'bg-blue-500 text-white shadow-blue-500' : 'bg-black text-white')} border ${isRecommended ? 'border-blue-300' : 'border-white'} flex items-center justify-center shadow-[0_0_15px_rgba(255,255,255,0.4)] rounded-sm">
                   ${svgIcon}
                   </div>
                   ${isRecommended ? '<div class="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border border-white"></div>' : ''}
+                  ${showPrice ? `<div class="absolute -bottom-4 left-1/2 -translate-x-1/2 bg-green-500 text-black text-[8px] font-bold px-1 rounded-sm border border-white whitespace-nowrap shadow-sm z-50">${prov.priceBase}</div>` : ''}
               </div>`;
           if (currentMarkers[prov.id]) {
               currentMarkers[prov.id].setIcon(L.divIcon({ html: markerHtml, className: '', iconSize: [40, 48], iconAnchor: [20, 48] }));
@@ -253,29 +258,29 @@ export const MapView: React.FC<MapViewProps> = ({
        });
 
        publicRequests.filter(r => r.status === 'OPEN' && r.ownerId === 'current_user').forEach(req => {
+           if (!isValidLatLng(req.coordinates.x, req.coordinates.y)) return;
            activeIds.add(req.id);
            const isSelected = selectedPublicRequest?.id === req.id;
            const reqHtml = `
               <div class="flex flex-col items-center group">
-                  <div class="w-12 h-12 bg-blue-600 border-2 border-white text-white flex items-center justify-center rounded-full shadow-[0_0_15px_rgba(37,99,235,0.6)] z-20 ${isSelected ? 'animate-bounce' : 'animate-pulse'}">
+                  <div class="w-12 h-12 bg-blue-600 border-2 border-white text-white flex items-center justify-center rounded-full shadow-[0_0_15px_rgba(37,99,235,0.6)] z-20">
                     <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m3 11 18-5v12L3 14v-3z"/><path d="M11.6 16.8a3 3 0 1 1-5.8-1.6"/></svg>
                   </div>
-                  <div class="bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-sm mt-1 border border-white shadow-sm whitespace-nowrap uppercase tracking-widest">Buscando...</div>
               </div>`;
            if(currentMarkers[req.id]) {
                currentMarkers[req.id].setIcon(L.divIcon({ html: reqHtml, className: '', iconSize: [60, 80], iconAnchor: [30, 40] }));
            } else {
                const marker = L.marker([req.coordinates.x, req.coordinates.y], { icon: L.divIcon({ html: reqHtml, className: '', iconSize: [60, 80], iconAnchor: [30, 40] }) }).addTo(map);
-               marker.on('click', (e) => { L.DomEvent.stopPropagation(e); onSelectPublicRequest(req); onSelectProvider(null); });
+               marker.on('click', (e) => { L.DomEvent.stopPropagation(e); onSelectPublicRequest(req); onSelectOrder(null); onSelectProvider(null); });
                currentMarkers[req.id] = marker;
            }
        });
     }
 
-    if (role === UserRole.PROVIDER) {
+    if (role === UserRole.PROVIDER && isValidLatLng(myProviderProfile.coordinates.x, myProviderProfile.coordinates.y)) {
        const meId = 'me_' + myProviderProfile.id;
        activeIds.add(meId);
-       const meHtml = `<div class="flex flex-col items-center"><div class="bg-black text-white text-[8px] font-bold px-1 border border-white mb-1 uppercase">Mi Ubicación</div><div class="w-8 h-8 bg-zinc-800 text-white border-2 border-white flex items-center justify-center rounded-full animate-pulse">${ICONS_SVG.electricidad}</div></div>`;
+       const meHtml = `<div class="flex flex-col items-center"><div class="bg-black text-white text-[8px] font-bold px-1 border border-white mb-1 uppercase">Mi Ubicación</div><div class="w-8 h-8 bg-zinc-800 text-white border-2 border-white flex items-center justify-center rounded-full">${ICONS_SVG.electricidad}</div></div>`;
        if(!currentMarkers[meId]) currentMarkers[meId] = L.marker([myProviderProfile.coordinates.x, myProviderProfile.coordinates.y], { icon: L.divIcon({ html: meHtml, className: '', iconSize: [60, 60], iconAnchor: [30, 40] }), zIndexOffset: 999 }).addTo(map);
 
        if (radiusLayerRef.current) {
@@ -293,6 +298,7 @@ export const MapView: React.FC<MapViewProps> = ({
        }
 
        orders.filter(o => ['PENDING', 'ACCEPTED', 'IN_PROGRESS'].includes(o.status)).forEach(order => {
+          if (!isValidLatLng(order.clientCoordinates.x, order.clientCoordinates.y)) return;
           activeIds.add(order.id);
           const isSelected = selectedOrder?.id === order.id;
           const markerHtml = `<div class="relative flex flex-col items-center justify-center group transition-all duration-300 ${isSelected ? 'scale-125 z-50' : ''}"><div class="w-10 h-10 ${isSelected ? 'bg-green-500 text-black' : 'bg-black text-green-500'} border-2 border-green-500 flex items-center justify-center shadow-[0_0_15px_rgba(74,222,128,0.4)] rounded-full"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div></div>`;
@@ -304,6 +310,7 @@ export const MapView: React.FC<MapViewProps> = ({
           }
        });
        publicRequests.filter(r => r.status === 'OPEN').forEach(req => {
+           if (!isValidLatLng(req.coordinates.x, req.coordinates.y)) return;
            activeIds.add(req.id);
            const isSelected = selectedPublicRequest?.id === req.id;
            const svgIcon = (ICONS_SVG as any)[req.category.id] || ICONS_SVG.default;
@@ -317,7 +324,7 @@ export const MapView: React.FC<MapViewProps> = ({
        });
     }
     Object.keys(currentMarkers).forEach(id => { if (!activeIds.has(id)) { map.removeLayer(currentMarkers[id]); delete currentMarkers[id]; } });
-  }, [role, providers, orders, publicRequests, selectedProvider, selectedOrder, selectedPublicRequest, filterCategory, clientLocation, currentAddress, myProviderProfile, savedAddresses]);
+  }, [role, providers, orders, publicRequests, selectedProvider, selectedOrder, selectedPublicRequest, filterCategory, clientLocation, currentAddress, myProviderProfile, savedAddresses, showPrices]);
 
   const activeCatName = CATEGORIES.find(c => c.id === filterCategory)?.name || 'Todos';
 
@@ -338,11 +345,13 @@ export const MapView: React.FC<MapViewProps> = ({
 
       {role === UserRole.CLIENT && !isCreatingRequest && (
       <div className="absolute top-20 left-4 right-4 z-[500] flex justify-between items-start pointer-events-none">
-         <button onClick={() => setIsFilterOpen(true)} className="pointer-events-auto bg-black border border-white px-4 py-2 flex items-center gap-2 shadow-lg hover:bg-white hover:text-black transition-colors">
-           <Filter className="w-4 h-4" /><span className="text-xs font-bold uppercase tracking-widest">{activeCatName}</span>
-         </button>
-         <div className="pointer-events-auto w-10 h-10 bg-black border border-white flex items-center justify-center hover:bg-zinc-900 active:bg-zinc-800 cursor-pointer transition-colors">
-            <Crosshair className="w-5 h-5 text-white" onClick={() => { mapInstanceRef.current?.setView(DEFAULT_CENTER as L.LatLngExpression, 14); setClientLocation({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] }); }} />
+         <div className="flex gap-2">
+             <button onClick={() => setIsFilterOpen(true)} className="pointer-events-auto bg-black border border-white px-4 py-2 flex items-center gap-2 shadow-lg hover:bg-white hover:text-black transition-colors">
+               <Filter className="w-4 h-4" /><span className="text-xs font-bold uppercase tracking-widest">{activeCatName}</span>
+             </button>
+             <button onClick={() => setShowPrices(!showPrices)} className={`pointer-events-auto border px-3 py-2 flex items-center gap-2 shadow-lg transition-colors ${showPrices ? 'bg-white text-black border-white' : 'bg-black text-white border-white'}`}>
+               <CircleDollarSign className="w-4 h-4" />
+             </button>
          </div>
       </div>
       )}
@@ -366,7 +375,7 @@ export const MapView: React.FC<MapViewProps> = ({
                      <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 translate-y-full w-4 h-1 bg-black/50 blur-[2px] rounded-full"></div>
                  </div>
              </div>
-             <div className="absolute bottom-0 left-0 right-0 z-[2000] bg-black border-t border-zinc-800 p-6 animate-in slide-in-from-bottom-10">
+             <div className="absolute bottom-[80px] left-0 right-0 z-[2000] bg-black border-t border-zinc-800 p-6 animate-in slide-in-from-bottom-10">
                  <div className="flex justify-between items-center mb-4">
                      <h3 className="text-lg font-black uppercase text-white">Publicar Solicitud</h3>
                      <button onClick={() => onSetIsCreatingRequest(false)}><X className="w-6 h-6" /></button>
@@ -387,7 +396,7 @@ export const MapView: React.FC<MapViewProps> = ({
       )}
 
       {selectedProvider && role === UserRole.CLIENT && !isCreatingRequest && (
-          <div className="absolute bottom-[60px] left-0 right-0 z-[600] p-4 animate-in slide-in-from-bottom-10 duration-300">
+          <div className="absolute bottom-[80px] left-0 right-0 z-[600] p-4 animate-in slide-in-from-bottom-10 duration-300">
               <div className="bg-black border border-white p-6 shadow-[0_-5px_20px_rgba(0,0,0,0.8)] relative">
                   <button onClick={() => onSelectProvider(null)} className="absolute -top-3 right-4 bg-white text-black p-1 hover:scale-110 transition-transform"><X className="w-4 h-4" /></button>
                   {!isRequesting ? (
@@ -421,7 +430,7 @@ export const MapView: React.FC<MapViewProps> = ({
       )}
 
       {selectedPublicRequest && (
-          <div className="absolute bottom-[60px] left-0 right-0 z-[600] p-4 animate-in slide-in-from-bottom-10 duration-300">
+          <div className="absolute bottom-[80px] left-0 right-0 z-[600] p-4 animate-in slide-in-from-bottom-10 duration-300">
               <div className="bg-black border-2 border-white p-6 shadow-[0_-5px_20px_rgba(0,0,0,0.8)] relative">
                   <button onClick={() => onSelectPublicRequest(null)} className="absolute -top-3 right-4 bg-zinc-800 text-white p-1 hover:scale-110 transition-transform"><X className="w-4 h-4" /></button>
                   <div className="mb-4">
@@ -494,7 +503,7 @@ export const MapView: React.FC<MapViewProps> = ({
       )}
 
       {selectedOrder && role === UserRole.PROVIDER && (
-          <div className="absolute bottom-[60px] left-0 right-0 z-[600] p-4 animate-in slide-in-from-bottom-10 duration-300">
+          <div className="absolute bottom-[80px] left-0 right-0 z-[600] p-4 animate-in slide-in-from-bottom-10 duration-300">
               <div className="bg-black border-2 border-green-500 p-6 shadow-[0_-5px_20px_rgba(0,0,0,0.8)] relative">
                   <button onClick={() => onSelectOrder(null)} className="absolute -top-3 right-4 bg-zinc-800 text-white p-1 hover:scale-110 transition-transform"><X className="w-4 h-4" /></button>
                   <div className="mb-4">
