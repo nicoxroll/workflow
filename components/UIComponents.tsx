@@ -1,7 +1,7 @@
 
-import React from 'react';
-import { Loader2, MapPin, Star, ShieldCheck, X } from 'lucide-react';
-import { ServiceCategory } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Loader2, MapPin, Star, ShieldCheck, X, Plus, Home, Briefcase, Check, ArrowLeft, Search, Edit2 } from 'lucide-react';
+import { ServiceCategory, SavedAddress } from '../types';
 
 // --- BUTTON ---
 interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
@@ -53,6 +53,63 @@ export const Input: React.FC<InputProps> = ({ label, icon, className = '', ...pr
   </div>
 );
 
+// --- MOCK AUTOCOMPLETE INPUT ---
+// Simulates a Google Places Autocomplete behavior
+const MOCK_LOCATIONS = [
+  "Av. Corrientes 1234, CABA",
+  "Av. Santa Fe 2000, CABA",
+  "Av. Libertador 4500, Palermo",
+  "Calle Florida 500, Microcentro",
+  "Av. Cabildo 2000, Belgrano",
+  "Gorriti 5000, Palermo Soho",
+  "Av. 9 de Julio 1000, Obelisco",
+  "Av. de Mayo 800, Monserrat",
+  "Lavalle 300, Microcentro",
+  "Reconquista 100, San Nicolás"
+];
+
+interface AutocompleteInputProps extends InputProps {
+  onSelectSuggestion: (address: string) => void;
+}
+
+export const AutocompleteInput: React.FC<AutocompleteInputProps> = ({ onSelectSuggestion, value, onChange, ...props }) => {
+  const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [showSuggestions, setShowSuggestions] = useState(false);
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    if (onChange) onChange(e);
+    
+    if (val.length > 2) {
+      const filtered = MOCK_LOCATIONS.filter(l => l.toLowerCase().includes(val.toLowerCase()));
+      setSuggestions(filtered);
+      setShowSuggestions(true);
+    } else {
+      setShowSuggestions(false);
+    }
+  };
+
+  return (
+    <div className="relative z-50">
+      <Input {...props} value={value} onChange={handleChange} autoComplete="off" />
+      {showSuggestions && suggestions.length > 0 && (
+        <div className="absolute top-full left-0 right-0 bg-zinc-900 border border-zinc-700 mt-1 max-h-40 overflow-y-auto shadow-xl z-50">
+          {suggestions.map((s, i) => (
+            <div 
+              key={i} 
+              onClick={() => { onSelectSuggestion(s); setShowSuggestions(false); }}
+              className="p-3 text-sm text-zinc-300 hover:bg-zinc-800 hover:text-white cursor-pointer border-b border-zinc-800 last:border-0 flex items-center gap-2"
+            >
+              <MapPin className="w-3 h-3 text-zinc-500" />
+              {s}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
 // --- CATEGORY CHIP (FILTER) ---
 interface CategoryChipProps {
   label: string;
@@ -82,28 +139,30 @@ export const RequestItem: React.FC<{
   location?: string;
   onClick?: () => void;
   date?: number;
-}> = ({ title, status, price, location, onClick, date }) => {
+  children?: React.ReactNode;
+}> = ({ title, status, price, location, onClick, date, children }) => {
   const isCompleted = status === 'COMPLETED';
   
   return (
     <div onClick={onClick} className={`group border-b border-zinc-900 py-5 hover:bg-zinc-900/50 cursor-pointer transition-colors px-4 ${isCompleted ? 'opacity-60 grayscale' : ''}`}>
       <div className="flex justify-between items-start mb-1">
         <h3 className="font-bold text-white text-sm uppercase tracking-wide group-hover:underline decoration-1 underline-offset-4">{title}</h3>
-        <span className={`text-[10px] font-mono border px-1 ${status === 'PENDING' ? 'border-zinc-600 text-zinc-400' : 'border-white text-white bg-white/10'}`}>
-          {status === 'IN_PROGRESS' ? 'EN CAMINO' : status}
+        <span className={`text-[10px] font-mono border px-1 ${status === 'PENDING' ? 'border-green-500 text-green-500' : 'border-white text-white bg-white/10'}`}>
+          {status === 'IN_PROGRESS' ? 'EN CAMINO' : status === 'PENDING' ? 'NUEVO' : status}
         </span>
       </div>
       
-      <div className="flex justify-between items-end mt-2">
+      <div className="flex justify-between items-end mt-2 mb-2">
         <div className="flex items-center gap-2 text-zinc-500 text-xs">
           <MapPin className="w-3 h-3" />
           <span>{location}</span>
         </div>
         <div className="text-right">
-          <span className="font-mono text-white text-xs block">{price || 'A convenir'}</span>
+          <span className="font-mono text-white text-sm font-bold block">{price || 'A convenir'}</span>
           {date && <span className="text-[9px] text-zinc-600 uppercase">{new Date(date).toLocaleDateString()}</span>}
         </div>
       </div>
+      {children && <div className="mt-3">{children}</div>}
     </div>
   );
 };
@@ -139,9 +198,9 @@ export const FilterModal: React.FC<{
   if (!isOpen) return null;
   
   return (
-    <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div onClick={onClose} className="absolute inset-0" />
-      <div className="relative bg-black border-t sm:border border-white w-full max-w-md p-6 animate-in slide-in-from-bottom-10">
+      <div className="relative bg-black border-t sm:border border-white w-full max-w-md p-6 animate-in slide-in-from-bottom-10 shadow-2xl">
         
         <div className="flex justify-between items-center mb-8 border-b border-zinc-800 pb-4">
           <h3 className="text-xl font-black uppercase tracking-tighter">Filtros & Rubros</h3>
@@ -149,8 +208,6 @@ export const FilterModal: React.FC<{
         </div>
         
         <div className="space-y-8 mb-8">
-          
-          {/* Categories Section moved here */}
           <div>
             <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest mb-3 block">Rubro / Categoría</label>
             <div className="flex flex-wrap gap-2">
@@ -184,6 +241,151 @@ export const FilterModal: React.FC<{
         </div>
 
         <Button onClick={onClose}>Aplicar Filtros</Button>
+      </div>
+    </div>
+  );
+};
+
+// --- ADDRESS MODAL ---
+export const AddressModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  addresses: SavedAddress[];
+  onSelect: (addr: SavedAddress) => void;
+  onAdd: (name: string, address: string) => void;
+  onEdit: (id: string, name: string, address: string) => void;
+  currentAddressId?: string;
+}> = ({ isOpen, onClose, addresses, onSelect, onAdd, onEdit, currentAddressId }) => {
+  const [view, setView] = useState<'list' | 'add' | 'edit'>('list');
+  const [editId, setEditId] = useState<string | null>(null);
+  const [name, setName] = useState('');
+  const [addr, setAddr] = useState('');
+
+  // Reset state when opening
+  useEffect(() => {
+    if (isOpen) {
+      setView('list');
+      setName('');
+      setAddr('');
+      setEditId(null);
+    }
+  }, [isOpen]);
+
+  if (!isOpen) return null;
+
+  const handleStartEdit = (e: React.MouseEvent, address: SavedAddress) => {
+    e.stopPropagation();
+    setEditId(address.id);
+    setName(address.name);
+    setAddr(address.address);
+    setView('edit');
+  };
+
+  const handleStartAdd = () => {
+    setName('');
+    setAddr('');
+    setView('add');
+  };
+
+  const handleSubmit = () => {
+    if (name && addr) {
+      if (view === 'add') {
+        onAdd(name, addr);
+      } else if (view === 'edit' && editId) {
+        onEdit(editId, name, addr);
+      }
+      setView('list');
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-[2000] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div onClick={onClose} className="absolute inset-0" />
+      <div className="relative bg-black border-t sm:border border-white w-full max-w-md p-6 animate-in slide-in-from-bottom-10 shadow-2xl max-h-[85vh] overflow-y-auto">
+        
+        <div className="flex justify-between items-center mb-6 border-b border-zinc-800 pb-4">
+          <h3 className="text-xl font-black uppercase tracking-tighter">Mis Direcciones</h3>
+          <button onClick={onClose} className="hover:rotate-90 transition-transform"><X className="w-6 h-6" /></button>
+        </div>
+
+        {view === 'list' ? (
+          <>
+            <div className="space-y-2 mb-6">
+              <div 
+                onClick={() => onSelect({ id: 'current', name: 'Mi Ubicación Actual', address: 'GPS', coordinates: {x:0, y:0} })} // Coordinates handled in parent
+                className={`p-4 border cursor-pointer transition-colors flex items-center justify-between group ${currentAddressId === 'current' ? 'bg-white text-black border-white' : 'bg-zinc-900 text-white border-zinc-800 hover:border-zinc-600'}`}
+              >
+                 <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full border border-current flex items-center justify-center"><MapPin className="w-4 h-4" /></div>
+                    <div>
+                      <div className="font-bold uppercase text-xs tracking-wider">Mi Ubicación Actual</div>
+                      <div className="text-xs opacity-80">Usar GPS</div>
+                    </div>
+                 </div>
+                 {currentAddressId === 'current' && <div className="bg-black text-white rounded-full p-1"><Check size={12} /></div>}
+              </div>
+
+              {addresses.map(a => {
+                const isSelected = currentAddressId === a.id;
+                const icon = a.name.toLowerCase().includes('casa') ? <Home className="w-5 h-5" /> : 
+                             a.name.toLowerCase().includes('trabajo') || a.name.toLowerCase().includes('oficina') ? <Briefcase className="w-5 h-5" /> : <MapPin className="w-5 h-5" />;
+                return (
+                  <div 
+                    key={a.id} 
+                    onClick={() => onSelect(a)}
+                    className={`p-4 border cursor-pointer transition-colors flex items-center justify-between group ${isSelected ? 'bg-white text-black border-white' : 'bg-zinc-900 text-white border-zinc-800 hover:border-zinc-600'}`}
+                  >
+                    <div className="flex items-center gap-3">
+                       {icon}
+                       <div>
+                         <div className="font-bold uppercase text-xs tracking-wider">{a.name}</div>
+                         <div className="text-xs opacity-80 truncate max-w-[200px]">{a.address}</div>
+                       </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        {isSelected && <div className="bg-black text-white rounded-full p-1"><Check size={12} /></div>}
+                        <button 
+                          onClick={(e) => handleStartEdit(e, a)}
+                          className={`p-2 rounded-full hover:bg-zinc-700 ${isSelected ? 'text-black hover:text-white' : 'text-zinc-500 hover:text-white'}`}
+                        >
+                          <Edit2 className="w-4 h-4" />
+                        </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <Button variant="outline" onClick={handleStartAdd}>
+               <Plus className="w-4 h-4" /> Agregar Nueva Dirección
+            </Button>
+          </>
+        ) : (
+           <div className="animate-in slide-in-from-right">
+              <button onClick={() => setView('list')} className="text-xs text-zinc-500 hover:text-white mb-4 flex items-center gap-1">
+                <ArrowLeft className="w-3 h-3" /> Volver a lista
+              </button>
+              <h4 className="font-bold text-white mb-4">{view === 'add' ? 'Nueva Dirección' : 'Editar Dirección'}</h4>
+              <div className="space-y-4 mb-6">
+                <Input 
+                  label="Nombre (Ej: Casa, Novia, Gym)" 
+                  placeholder="Nombre corto..." 
+                  value={name}
+                  onChange={e => setName(e.target.value)}
+                />
+                <AutocompleteInput 
+                  label="Calle y Altura" 
+                  placeholder="Buscar dirección..." 
+                  icon={<Search className="w-4 h-4" />}
+                  value={addr}
+                  onChange={e => setAddr(e.target.value)}
+                  onSelectSuggestion={(s) => setAddr(s)}
+                />
+              </div>
+              <Button onClick={handleSubmit} disabled={!name || !addr}>
+                {view === 'add' ? 'Guardar Dirección' : 'Actualizar Dirección'}
+              </Button>
+           </div>
+        )}
       </div>
     </div>
   );
