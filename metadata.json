@@ -1,5 +1,5 @@
 {
-  "name": "ServiYa Argentina",
+  "name": "Jobly",
   "description": "Plataforma de servicios del hogar estilo Uber/Rappi para conectar clientes y profesionales en Argentina.",
   "requestFramePermissions": [
     "geolocation"

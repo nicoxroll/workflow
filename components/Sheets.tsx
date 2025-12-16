@@ -36,7 +36,7 @@ export const ClientProfileSheet: React.FC<{ clientName: string; onClose: () => v
 
 export const StorePreviewSheet: React.FC<{ provider: ProviderStore; onClose: () => void }> = ({ provider, onClose }) => (
     <div className="fixed inset-0 z-[2100] bg-black flex flex-col animate-in slide-in-from-bottom-10 overflow-y-auto no-scrollbar">
-        <div className="relative h-64 w-full bg-zinc-800">
+        <div className="relative h-64 w-full bg-zinc-800 shrink-0">
             {provider.heroImage ? (
                 <img src={provider.heroImage} className="w-full h-full object-cover" alt="Hero" />
             ) : (
@@ -54,7 +54,7 @@ export const StorePreviewSheet: React.FC<{ provider: ProviderStore; onClose: () 
                  </div>
             </div>
         </div>
-        <div className="p-6">
+        <div className="p-6 flex-1">
              <div className="flex justify-between items-start mb-6">
                  <div>
                      <p className="text-zinc-400 text-sm leading-relaxed mb-4">{provider.description || "Sin descripción disponible."}</p>
@@ -67,20 +67,20 @@ export const StorePreviewSheet: React.FC<{ provider: ProviderStore; onClose: () 
                  </div>
              </div>
              
-             <h3 className="text-lg font-black uppercase text-white mb-4 border-b border-zinc-800 pb-2">Trabajos Realizados</h3>
-             {provider.portfolioImages && provider.portfolioImages.length > 0 ? (
-                 <div className="grid grid-cols-2 gap-2">
-                     {provider.portfolioImages.map((img, idx) => (
-                         <div key={idx} className="aspect-square bg-zinc-800 rounded-sm overflow-hidden">
-                             <img src={img} className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" alt={`Portfolio ${idx}`} />
-                         </div>
-                     ))}
-                 </div>
-             ) : (
-                 <p className="text-zinc-600 italic text-sm">No hay imágenes en el portafolio.</p>
+             {provider.portfolioImages && provider.portfolioImages.length > 0 && (
+                 <>
+                    <h3 className="text-lg font-black uppercase text-white mb-4 border-b border-zinc-800 pb-2">Trabajos Realizados</h3>
+                    <div className="grid grid-cols-2 gap-2 pb-6">
+                        {provider.portfolioImages.map((img, idx) => (
+                            <div key={idx} className="aspect-square bg-zinc-800 rounded-sm overflow-hidden">
+                                <img src={img} className="w-full h-full object-cover hover:scale-110 transition-transform duration-500" alt={`Portfolio ${idx}`} />
+                            </div>
+                        ))}
+                    </div>
+                 </>
              )}
         </div>
-        <div className="p-6 mt-auto border-t border-zinc-800 sticky bottom-0 bg-black">
+        <div className="p-6 mt-auto border-t border-zinc-800 sticky bottom-0 bg-black z-50">
              <Button className="w-full">CONTACTAR SERVICIO</Button>
         </div>
     </div>

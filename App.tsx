@@ -37,7 +37,6 @@ const MOCK_PROVIDERS: ProviderStore[] = [
     heroImage: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?q=80&w=2069&auto=format&fit=crop',
     description: 'Especialista en instalaciones domiciliarias e industriales. Urgencias 24hs. Matriculado con más de 10 años de experiencia en CABA.',
     portfolioImages: [
-        'https://images.unsplash.com/photo-1544724569-5f546fd6dd2a?q=80&w=800&auto=format&fit=crop',
         'https://images.unsplash.com/photo-1558402529-d2638a7023e9?q=80&w=800&auto=format&fit=crop',
         'https://images.unsplash.com/photo-1581092918056-0c4c3acd3789?q=80&w=800&auto=format&fit=crop'
     ]
@@ -155,6 +154,7 @@ const App = () => {
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
   const [currentAddress, setCurrentAddress] = useState("Mi Ubicación Actual");
   const [clientLocation, setClientLocation] = useState<{lat: number, lng: number}>({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] });
+  const [mapCenter, setMapCenter] = useState<{lat: number, lng: number}>({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] });
   
   const [isCreatingRequest, setIsCreatingRequest] = useState(false);
 
@@ -201,20 +201,17 @@ const App = () => {
 
   const handleAddAddress = (name: string, address: string) => {
       // Logic for adding a new address
-      // Use clientLocation as the base for the new address (simulating we found it near the user)
-      // Fallback to DEFAULT_CENTER if clientLocation has issues (though it shouldn't)
-      const baseLat = !isNaN(clientLocation.lat) ? clientLocation.lat : DEFAULT_CENTER[0];
-      const baseLng = !isNaN(clientLocation.lng) ? clientLocation.lng : DEFAULT_CENTER[1];
+      // Use mapCenter as the coordinate. This allows the user to drag the map to the location they want to save.
+      const baseLat = !isNaN(mapCenter.lat) ? mapCenter.lat : DEFAULT_CENTER[0];
+      const baseLng = !isNaN(mapCenter.lng) ? mapCenter.lng : DEFAULT_CENTER[1];
 
       const newAddr: SavedAddress = {
           id: `addr_${Date.now()}`,
           name,
           address,
           coordinates: { 
-              // Create a small random offset to simulate that "Geocoding" found the specific street number nearby
-              // This ensures the marker appears close to where the user is looking
-              x: baseLat + (Math.random() - 0.5) * 0.002, 
-              y: baseLng + (Math.random() - 0.5) * 0.002 
+              x: baseLat, 
+              y: baseLng 
           }
       };
       setSavedAddresses(prev => [...prev, newAddr]);
@@ -434,7 +431,14 @@ const App = () => {
                 onAcceptApplicant={handleAcceptApplicant}
                 onDeleteRequest={handleDeleteRequest}
                 onFilterChange={setFilterCategory}
-                onViewClientProfile={(name) => handleViewStore(name)}
+                onViewClientProfile={(name) => {
+                    const provider = providers.find(p => p.name === name);
+                    if (provider) {
+                        handleViewStore(name);
+                    } else {
+                        setViewingClientProfile(name);
+                    }
+                }}
                 onStartChat={handleStartChat}
                 onAddPublicRequest={handleAddPublicRequest}
                 onOpenAddressModal={() => setIsAddressModalOpen(true)}
@@ -444,6 +448,7 @@ const App = () => {
                 savedAddresses={savedAddresses}
                 clientLocation={clientLocation}
                 onUpdateLocation={setClientLocation}
+                onMapCenterChange={(lat, lng) => setMapCenter({lat, lng})}
               />
           )}
           {view === 'orders' && (

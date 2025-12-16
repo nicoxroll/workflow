@@ -95,6 +95,7 @@ interface MapViewProps {
   savedAddresses: SavedAddress[];
   clientLocation: { lat: number; lng: number };
   onUpdateLocation: (loc: { lat: number; lng: number }) => void;
+  onMapCenterChange?: (lat: number, lng: number) => void;
 }
 
 export const MapView: React.FC<MapViewProps> = ({
@@ -102,7 +103,7 @@ export const MapView: React.FC<MapViewProps> = ({
   filterCategory, isRequesting, requestDescription,
   onSelectProvider, onSelectOrder, onSelectPublicRequest, onRequestDescriptionChange, onSetIsRequesting,
   onSendRequest, onAcceptOrder, onRejectOrder, onApplyToRequest, onAcceptApplicant, onDeleteRequest, onViewClientProfile, onStartChat, onFilterChange, onAddPublicRequest,
-  onOpenAddressModal, currentAddress, isCreatingRequest, onSetIsCreatingRequest, savedAddresses, clientLocation, onUpdateLocation
+  onOpenAddressModal, currentAddress, isCreatingRequest, onSetIsCreatingRequest, savedAddresses, clientLocation, onUpdateLocation, onMapCenterChange
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -137,16 +138,31 @@ export const MapView: React.FC<MapViewProps> = ({
         }
     });
 
+    // Track map center movement for address picking
+    const handleMove = () => {
+        const c = map.getCenter();
+        if (onMapCenterChange && isValidLatLng(c.lat, c.lng)) {
+            onMapCenterChange(c.lat, c.lng);
+        }
+    }
+    map.on('moveend', handleMove);
+    // Initial center report
+    handleMove();
+
     return () => { map.remove(); mapInstanceRef.current = null; }
   }, []);
 
   // Update map view when clientLocation changes externally
   useEffect(() => {
       if (mapInstanceRef.current && isValidLatLng(clientLocation.lat, clientLocation.lng)) {
-          mapInstanceRef.current.flyTo([clientLocation.lat, clientLocation.lng], 16, {
-              animate: true,
-              duration: 1.5
-          });
+          // Check if we are already close to prevent jitter loop
+          const current = mapInstanceRef.current.getCenter();
+          if (Math.abs(current.lat - clientLocation.lat) > 0.0001 || Math.abs(current.lng - clientLocation.lng) > 0.0001) {
+              mapInstanceRef.current.flyTo([clientLocation.lat, clientLocation.lng], 16, {
+                  animate: true,
+                  duration: 1.5
+              });
+          }
       }
   }, [clientLocation]);
 
@@ -252,7 +268,12 @@ export const MapView: React.FC<MapViewProps> = ({
               currentMarkers[prov.id].setZIndexOffset(isSelected ? 900 : (isRecommended ? 800 : 0));
           } else {
               const marker = L.marker([prov.coordinates.x, prov.coordinates.y], { icon: L.divIcon({ html: markerHtml, className: '', iconSize: [40, 48], iconAnchor: [20, 48] }) }).addTo(map);
-              marker.on('click', (e) => { L.DomEvent.stopPropagation(e); onSelectProvider(prov); onSelectOrder(null); onSetIsRequesting(false); });
+              marker.on('click', (e) => { 
+                L.DomEvent.stopPropagation(e); 
+                onSelectProvider(prov); 
+                onSelectOrder(null); 
+                onSelectPublicRequest(null); 
+              });
               currentMarkers[prov.id] = marker;
           }
        });

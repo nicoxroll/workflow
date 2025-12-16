@@ -16,8 +16,8 @@ export const OrdersView: React.FC<{
   onSelectProvider: (p: ProviderStore) => void;
 }> = ({ role, orders, onViewOrder, onAcceptOrder, onRejectOrder, onViewClientProfile, publicRequests, providers, onSelectProvider }) => {
     return (
-        <div className="h-full bg-black pt-12 pb-32 flex flex-col">
-            <div className="px-6 mb-6">
+        <div className="absolute inset-0 bg-black flex flex-col pt-6 pb-[100px]">
+            <div className="px-6 mb-6 shrink-0">
                 <h2 className="text-3xl font-black uppercase mb-1">{role === UserRole.PROVIDER ? 'Mis Pedidos' : 'Explorar'}</h2>
                 <p className="text-zinc-500 text-sm">{role === UserRole.PROVIDER ? 'Solicitudes entrantes y activas' : 'Proveedores y Servicios'}</p>
             </div>
