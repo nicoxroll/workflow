@@ -1,6 +1,6 @@
 
 import React, { useRef, useEffect, useState } from 'react';
-import { ChevronDown, Star, User, Navigation, Clock } from 'lucide-react';
+import { ChevronDown, Star, User, Navigation, Clock, MapPin, ChevronUp, Info } from 'lucide-react';
 import { ProviderStore, ServiceOrder, UserRole } from '../../types';
 import { Button } from '../../components/UIComponents';
 
@@ -15,6 +15,9 @@ export const TrackingView: React.FC<{
     const mapRef = useRef<any>(null);
     const routingControlRef = useRef<any>(null);
     const [eta, setEta] = useState<string>('Calculando...');
+    const [showDetails, setShowDetails] = useState(false);
+
+    const provider = providers.find(p => p.id === trackingOrder.providerId);
 
     useEffect(() => {
         if (!containerRef.current || mapRef.current) return;
@@ -24,16 +27,14 @@ export const TrackingView: React.FC<{
         if (!L || !L.Routing) return;
 
         const startCoords = [trackingOrder.clientCoordinates.x, trackingOrder.clientCoordinates.y];
-        const provider = providers.find(p => p.id === trackingOrder.providerId);
-        // Coordenadas del profesional (si no hay, simulamos una cercana)
         const endCoords = provider ? [provider.coordinates.x, provider.coordinates.y] : [startCoords[0] + 0.008, startCoords[1] + 0.008];
 
         // Inicializar Mapa
         const map = L.map(containerRef.current, {
           center: startCoords,
           zoom: 15,
-          zoomControl: false, // DESACTIVADO
-          attributionControl: false // DESACTIVADO
+          zoomControl: false,
+          attributionControl: false
         });
 
         // Capa Oscura Premium
@@ -69,12 +70,11 @@ export const TrackingView: React.FC<{
           addWaypoints: false,
           draggableWaypoints: false,
           fitSelectedRoutes: true,
-          show: false, // Ocultamos el panel de texto
+          show: false, 
           lineOptions: {
             styles: [{ color: '#3b82f6', opacity: 0.8, weight: 6 }]
           },
           createMarker: (i: number, waypoint: any) => {
-            // Personalizar marcadores dentro del ruteo
             return L.marker(waypoint.latLng, {
               icon: i === 0 ? provIcon : clientIcon,
               zIndexOffset: 1000
@@ -84,7 +84,6 @@ export const TrackingView: React.FC<{
 
         routingControlRef.current = routingControl;
 
-        // Escuchar cuando se calcula la ruta para obtener el tiempo estimado real
         routingControl.on('routesfound', (e: any) => {
           const routes = e.routes;
           const summary = routes[0].summary;
@@ -121,28 +120,69 @@ export const TrackingView: React.FC<{
                 </div>
             </div>
 
-            <div className="bg-black border-t border-zinc-800 p-8 shadow-[0_-20px_50px_rgba(0,0,0,0.5)]">
-                 <div className="flex justify-between items-center mb-8">
-                     <div className="flex items-center gap-4">
-                         <div className="w-16 h-16 bg-zinc-800 rounded-full flex items-center justify-center border-2 border-zinc-700 shadow-inner overflow-hidden">
-                             <User className="w-8 h-8 text-white" />
-                         </div>
-                         <div>
-                             <h2 className="text-2xl font-black uppercase text-white tracking-tight leading-tight">{trackingOrder.providerName}</h2>
-                             <div className="flex items-center gap-2 text-zinc-500 text-xs font-bold">
-                                 <Star className="w-4 h-4 text-white fill-white" /> 4.9 • MATRICULADO
-                             </div>
-                         </div>
-                     </div>
-                     <div className="text-right">
-                        <div className="text-[10px] text-zinc-500 uppercase font-black">Total Estimado</div>
-                        <div className="text-xl font-mono text-white font-black">{trackingOrder.priceEstimate}</div>
-                     </div>
-                 </div>
-                 <div className="flex gap-4">
-                     <Button variant="outline" className="flex-1 border-zinc-800 text-zinc-500 hover:border-red-500 hover:text-red-500" onClick={onCancel}>CANCELAR</Button>
-                     <Button className="flex-[2] bg-white text-black font-black">ABRIR CHAT</Button>
-                 </div>
+            {/* Bottom Sheet UI */}
+            <div className="bg-black border-t border-zinc-800 shadow-[0_-20px_50px_rgba(0,0,0,0.5)] transition-all duration-300 overflow-hidden">
+                {/* Expandable Details Section */}
+                <div className={`transition-all duration-500 ease-in-out ${showDetails ? 'max-h-60 opacity-100 border-b border-zinc-900' : 'max-h-0 opacity-0'}`}>
+                    <div className="p-6 space-y-4 bg-zinc-950">
+                        <div className="flex items-start gap-3">
+                            <div className="mt-1"><div className="w-2 h-2 rounded-full bg-zinc-500"></div></div>
+                            <div>
+                                <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Punto de Partida</div>
+                                <div className="text-xs text-zinc-300 font-medium">{provider?.address || 'Ubicación del profesional'}</div>
+                            </div>
+                        </div>
+                        <div className="flex items-start gap-3">
+                            <div className="mt-1"><div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.6)]"></div></div>
+                            <div>
+                                <div className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">Destino (Tu domicilio)</div>
+                                <div className="text-xs text-zinc-100 font-bold">{trackingOrder.location}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="p-8">
+                    <div className="flex justify-between items-center mb-6">
+                        <div className="flex items-center gap-4">
+                            <div className="w-14 h-14 bg-zinc-800 rounded-full flex items-center justify-center border-2 border-zinc-700 shadow-inner overflow-hidden">
+                                <User className="w-7 h-7 text-white" />
+                            </div>
+                            <div>
+                                <h2 className="text-xl font-black uppercase text-white tracking-tight leading-tight">{trackingOrder.providerName}</h2>
+                                <div className="flex items-center gap-2 text-zinc-500 text-[10px] font-bold">
+                                    <Star className="w-3 h-3 text-white fill-white" /> 4.9 • MATRICULADO
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-end">
+                            <button 
+                                onClick={() => setShowDetails(!showDetails)}
+                                className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase transition-all ${showDetails ? 'bg-white text-black border-white' : 'bg-transparent text-zinc-500 border-zinc-800 hover:border-zinc-500'}`}
+                            >
+                                {showDetails ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+                                {showDetails ? 'Ocultar' : 'Direcciones'}
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="flex items-center justify-between mb-8 bg-zinc-900/50 p-4 border border-zinc-800/50 rounded-sm">
+                        <div>
+                            <div className="text-[9px] text-zinc-500 uppercase font-black tracking-widest">Costo del Servicio</div>
+                            <div className="text-lg font-mono text-white font-black">{trackingOrder.priceEstimate}</div>
+                        </div>
+                        <div className="h-8 w-px bg-zinc-800"></div>
+                        <div className="text-right">
+                            <div className="text-[9px] text-zinc-500 uppercase font-black tracking-widest">Tiempo Estimado</div>
+                            <div className="text-lg font-mono text-blue-400 font-black">{eta}</div>
+                        </div>
+                    </div>
+
+                    <div className="flex gap-4">
+                        <Button variant="outline" className="flex-1 border-zinc-800 text-zinc-500 hover:border-red-500 hover:text-red-500" onClick={onCancel}>CANCELAR</Button>
+                        <Button className="flex-[2] bg-white text-black font-black">ABRIR CHAT</Button>
+                    </div>
+                </div>
             </div>
         </div>
     );
