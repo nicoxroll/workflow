@@ -1,5 +1,6 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useJsApiLoader } from '@react-google-maps/api';
 import { UserRole, ServiceCategory, ProviderStore, ServiceOrder, ChatSession, SavedAddress, PublicRequest, RequestApplicant } from './types';
 import { AddressModal } from './components/UIComponents';
 import { MapView } from './features/map/MapView';
@@ -12,6 +13,7 @@ import { ClientProfileSheet, StorePreviewSheet } from './components/Sheets';
 
 // --- DATA CONSTANTS ---
 const DEFAULT_CENTER = [-34.6037, -58.3816];
+const LIBRARIES: ("places" | "geometry" | "drawing" | "visualization")[] = ['places'];
 
 const CATEGORIES: ServiceCategory[] = [
   { id: 'all', name: 'Todos', icon: 'grid' },
@@ -98,9 +100,21 @@ const MOCK_INCOMING_ORDERS: ServiceOrder[] = [
         description: 'Tengo un corto en la cocina, urgente.',
         status: 'PENDING',
         location: 'Av. Córdoba 1500',
-        clientCoordinates: { x: -34.6000, y: -58.3890 },
-        priceEstimate: '$20.000',
-        createdAt: Date.now() - 1000 * 60 * 5 // 5 min ago
+        clientCoordinates: { x: -34.5980, y: -58.3860 },
+        priceEstimate: '$15.000',
+        createdAt: Date.now()
+    },
+    {
+        id: 'req_102',
+        providerId: 'p1',
+        providerName: 'Esteban "El Rayo" K.',
+        clientId: 'Maria Gonzalez',
+        description: 'Instalación de luminarias LED en local.',
+        status: 'ACCEPTED',
+        location: 'Talcahuano 800',
+        clientCoordinates: { x: -34.6010, y: -58.3830 },
+        priceEstimate: '$45.000',
+        createdAt: Date.now() - 3600000
     }
 ];
 
@@ -128,6 +142,13 @@ const MOCK_CHATS: ChatSession[] = [
 const MOCK_ADDRESSES: SavedAddress[] = [];
 
 const App = () => {
+  const apiKey = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+  const { isLoaded, loadError } = useJsApiLoader({
+    id: 'google-map-script',
+    googleMapsApiKey: apiKey || '',
+    libraries: LIBRARIES
+  });
+
   const [role, setRole] = useState<UserRole>(UserRole.CLIENT);
   const [view, setView] = useState<string>('map');
   const [activeTab, setActiveTab] = useState('map');
@@ -199,11 +220,11 @@ const App = () => {
       setActiveTab('map');
   };
 
-  const handleAddAddress = (name: string, address: string) => {
+  const handleAddAddress = (name: string, address: string, coordinates?: {x: number, y: number}) => {
       // Logic for adding a new address
-      // Use mapCenter as the coordinate. This allows the user to drag the map to the location they want to save.
-      const baseLat = !isNaN(mapCenter.lat) ? mapCenter.lat : DEFAULT_CENTER[0];
-      const baseLng = !isNaN(mapCenter.lng) ? mapCenter.lng : DEFAULT_CENTER[1];
+      // Use provided coordinates or mapCenter
+      const baseLat = coordinates ? coordinates.x : (!isNaN(mapCenter.lat) ? mapCenter.lat : DEFAULT_CENTER[0]);
+      const baseLng = coordinates ? coordinates.y : (!isNaN(mapCenter.lng) ? mapCenter.lng : DEFAULT_CENTER[1]);
 
       const newAddr: SavedAddress = {
           id: `addr_${Date.now()}`,
@@ -218,8 +239,13 @@ const App = () => {
       handleSelectAddress(newAddr);
   };
 
-  const handleEditAddress = (id: string, name: string, address: string) => {
-      setSavedAddresses(prev => prev.map(a => a.id === id ? { ...a, name, address } : a));
+  const handleEditAddress = (id: string, name: string, address: string, coordinates?: {x: number, y: number}) => {
+      setSavedAddresses(prev => prev.map(a => a.id === id ? { 
+          ...a, 
+          name, 
+          address,
+          coordinates: coordinates || a.coordinates 
+      } : a));
       if (savedAddresses.find(a => a.id === id)?.name === currentAddress) {
           setCurrentAddress(name);
       }
@@ -334,7 +360,7 @@ const App = () => {
           applicants: []
       };
       setPublicRequests(prev => [newReq, ...prev]);
-      alert("Tu solicitud ha sido publicada en el mapa.");
+      // alert("Tu solicitud ha sido publicada en el mapa.");
   };
 
   const handleDeleteRequest = (reqId: string) => {
@@ -400,7 +426,7 @@ const App = () => {
   // --- Render ---
 
   if (trackingOrder && isTrackingMaximized && trackingOrder.status !== 'CANCELLED') {
-      return <TrackingView role={role} trackingOrder={trackingOrder} providers={providers} onMinimize={() => setIsTrackingMaximized(false)} onCancel={handleCancelTracking} />;
+      return <TrackingView role={role} trackingOrder={trackingOrder} providers={providers} onMinimize={() => setIsTrackingMaximized(false)} onCancel={handleCancelTracking} isLoaded={isLoaded} />;
   }
 
   return (
@@ -408,6 +434,7 @@ const App = () => {
        <div className="flex-1 relative overflow-hidden">
           {view === 'map' && (
               <MapView 
+                isLoaded={isLoaded}
                 role={role}
                 providers={providers}
                 orders={orders}
@@ -483,6 +510,7 @@ const App = () => {
           {activeChatSession && <ChatConversation session={activeChatSession} onClose={() => setActiveChatSession(null)} onViewProfile={() => {/* Todo: link to profile from chat */}} />}
           
           <AddressModal 
+            isLoaded={isLoaded}
             isOpen={isAddressModalOpen} 
             onClose={() => setIsAddressModalOpen(false)} 
             addresses={savedAddresses} 

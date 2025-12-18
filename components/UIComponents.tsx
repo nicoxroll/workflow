@@ -1,6 +1,7 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Loader2, MapPin, Star, ShieldCheck, X, Plus, Home, Briefcase, Check, ArrowLeft, Search, Edit2 } from 'lucide-react';
+import { GoogleMap, MarkerF, Autocomplete } from '@react-google-maps/api';
 import { ServiceCategory, SavedAddress } from '../types';
 
 // --- BUTTON ---
@@ -248,18 +249,23 @@ export const FilterModal: React.FC<{
 
 // --- ADDRESS MODAL ---
 export const AddressModal: React.FC<{
+  isLoaded?: boolean;
   isOpen: boolean;
   onClose: () => void;
   addresses: SavedAddress[];
   onSelect: (addr: SavedAddress) => void;
-  onAdd: (name: string, address: string) => void;
-  onEdit: (id: string, name: string, address: string) => void;
+  onAdd: (name: string, address: string, coordinates?: {x: number, y: number}) => void;
+  onEdit: (id: string, name: string, address: string, coordinates?: {x: number, y: number}) => void;
   currentAddressId?: string;
-}> = ({ isOpen, onClose, addresses, onSelect, onAdd, onEdit, currentAddressId }) => {
+}> = ({ isLoaded, isOpen, onClose, addresses, onSelect, onAdd, onEdit, currentAddressId }) => {
   const [view, setView] = useState<'list' | 'add' | 'edit'>('list');
   const [editId, setEditId] = useState<string | null>(null);
   const [name, setName] = useState('');
   const [addr, setAddr] = useState('');
+  const [coordinates, setCoordinates] = useState<{lat: number, lng: number} | null>(null);
+
+  const mapRef = useRef<google.maps.Map | null>(null);
+  const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
 
   // Reset state when opening
   useEffect(() => {
@@ -267,6 +273,7 @@ export const AddressModal: React.FC<{
       setView('list');
       setName('');
       setAddr('');
+      setCoordinates(null);
       setEditId(null);
     }
   }, [isOpen]);
@@ -278,24 +285,47 @@ export const AddressModal: React.FC<{
     setEditId(address.id);
     setName(address.name);
     setAddr(address.address);
+    setCoordinates({ lat: address.coordinates.x, lng: address.coordinates.y });
     setView('edit');
   };
 
   const handleStartAdd = () => {
     setName('');
     setAddr('');
+    setCoordinates(null);
     setView('add');
   };
 
   const handleSubmit = () => {
     if (name && addr) {
+      const coords = coordinates ? { x: coordinates.lat, y: coordinates.lng } : undefined;
       if (view === 'add') {
-        onAdd(name, addr);
+        onAdd(name, addr, coords);
       } else if (view === 'edit' && editId) {
-        onEdit(editId, name, addr);
+        onEdit(editId, name, addr, coords);
       }
       setView('list');
     }
+  };
+
+  const onPlaceChanged = () => {
+      if (autocompleteRef.current) {
+          const place = autocompleteRef.current.getPlace();
+          if (place.geometry && place.geometry.location) {
+              const loc = { lat: place.geometry.location.lat(), lng: place.geometry.location.lng() };
+              setCoordinates(loc);
+              setAddr(place.formatted_address || place.name || '');
+              mapRef.current?.panTo(loc);
+              mapRef.current?.setZoom(17);
+          }
+      }
+  };
+
+  const onMarkerDragEnd = (e: google.maps.MapMouseEvent) => {
+      if (e.latLng) {
+          const newLoc = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+          setCoordinates(newLoc);
+      }
   };
 
   return (
@@ -372,14 +402,58 @@ export const AddressModal: React.FC<{
                   value={name}
                   onChange={e => setName(e.target.value)}
                 />
-                <AutocompleteInput 
-                  label="Calle y Altura" 
-                  placeholder="Buscar dirección..." 
-                  icon={<Search className="w-4 h-4" />}
-                  value={addr}
-                  onChange={e => setAddr(e.target.value)}
-                  onSelectSuggestion={(s) => setAddr(s)}
-                />
+                
+                {isLoaded ? (
+                    <div className="space-y-2">
+                        <label className="text-[10px] uppercase font-bold text-zinc-500 tracking-widest ml-1">Dirección</label>
+                        <Autocomplete
+                            onLoad={ref => autocompleteRef.current = ref}
+                            onPlaceChanged={onPlaceChanged}
+                        >
+                            <input 
+                                className="w-full bg-black border border-zinc-800 text-white p-4 font-mono text-sm placeholder:text-zinc-700 focus:outline-none focus:border-white transition-colors rounded-none pl-12"
+                                placeholder="Buscar dirección en Google Maps..."
+                                value={addr}
+                                onChange={e => setAddr(e.target.value)}
+                            />
+                        </Autocomplete>
+                        
+                        <div className="h-48 w-full border border-zinc-800 mt-2 relative">
+                            <GoogleMap
+                                mapContainerStyle={{ width: '100%', height: '100%' }}
+                                center={coordinates || { lat: -34.6037, lng: -58.3816 }}
+                                zoom={coordinates ? 17 : 12}
+                                onLoad={map => mapRef.current = map}
+                                options={{
+                                    disableDefaultUI: true,
+                                    styles: [
+                                        { elementType: "geometry", stylers: [{ color: "#212121" }] },
+                                        { elementType: "labels.text.fill", stylers: [{ color: "#757575" }] },
+                                        { elementType: "labels.text.stroke", stylers: [{ color: "#212121" }] },
+                                        { featureType: "road", elementType: "geometry.fill", stylers: [{ color: "#2c2c2c" }] },
+                                    ]
+                                }}
+                            >
+                                {coordinates && (
+                                    <MarkerF 
+                                        position={coordinates} 
+                                        draggable={true}
+                                        onDragEnd={onMarkerDragEnd}
+                                    />
+                                )}
+                            </GoogleMap>
+                            <div className="absolute bottom-2 left-2 bg-black/80 text-white text-[9px] px-2 py-1 rounded">
+                                Arrastra el marcador para ajustar
+                            </div>
+                        </div>
+                    </div>
+                ) : (
+                    <Input 
+                        label="Dirección" 
+                        placeholder="Cargando Google Maps..." 
+                        disabled 
+                    />
+                )}
               </div>
               <Button onClick={handleSubmit} disabled={!name || !addr}>
                 {view === 'add' ? 'Guardar Dirección' : 'Actualizar Dirección'}
