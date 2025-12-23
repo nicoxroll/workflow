@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { useJsApiLoader } from '@react-google-maps/api';
 import { UserRole, ServiceCategory, ProviderStore, ServiceOrder, ChatSession, SavedAddress, PublicRequest, RequestApplicant } from './types';
-import { AddressModal } from './components/UIComponents';
+import { AddressModal, NotificationModal } from './components/UIComponents';
 import { MapView } from './features/map/MapView';
 import { OrdersView } from './features/orders/OrdersView';
 import { TrackingView } from './features/orders/TrackingView';
@@ -173,6 +173,8 @@ const App = () => {
 
   const [savedAddresses, setSavedAddresses] = useState<SavedAddress[]>(MOCK_ADDRESSES);
   const [isAddressModalOpen, setIsAddressModalOpen] = useState(false);
+  const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState('');
   const [currentAddress, setCurrentAddress] = useState("Mi Ubicación Actual");
   const [clientLocation, setClientLocation] = useState<{lat: number, lng: number}>({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] });
   const [mapCenter, setMapCenter] = useState<{lat: number, lng: number}>({ lat: DEFAULT_CENTER[0], lng: DEFAULT_CENTER[1] });
@@ -281,13 +283,18 @@ const App = () => {
     setIsRequesting(false);
     setSelectedProvider(null);
     setRequestDescription('');
-    alert("Solicitud enviada. Se ha generado un chat con el profesional.");
+    setNotificationMessage("Solicitud enviada. Se ha generado un chat con el profesional.");
+    setIsNotificationModalOpen(true);
     setOrders(prev => [newOrder, ...prev]);
   };
 
   const handleAcceptOrder = (order: ServiceOrder) => {
     const hasActiveJob = orders.some(o => ['ACCEPTED', 'IN_PROGRESS'].includes(o.status));
-    if (hasActiveJob) { alert("Ya tienes un trabajo en curso. Termínalo antes de aceptar otro."); return; }
+    if (hasActiveJob) { 
+      setNotificationMessage("Ya tienes un trabajo en curso. Termínalo antes de aceptar otro.");
+      setIsNotificationModalOpen(true);
+      return; 
+    }
     const updatedOrder = { ...order, status: 'ACCEPTED' as const };
     setOrders(prev => prev.map(o => o.id === updatedOrder.id ? updatedOrder : o));
     setTrackingOrder(updatedOrder);
@@ -305,7 +312,8 @@ const App = () => {
          }
          return r;
      }));
-     alert("Postulación enviada. El cliente revisará tu perfil.");
+     setNotificationMessage("Postulación enviada. El cliente revisará tu perfil.");
+     setIsNotificationModalOpen(true);
      setSelectedPublicRequest(null);
   };
 
@@ -342,7 +350,8 @@ const App = () => {
       setIsTrackingMaximized(true);
       setPublicRequests(prev => prev.filter(r => r.id !== reqId));
       setSelectedPublicRequest(null);
-      alert("Has contratado al profesional. Se ha abierto un chat.");
+      setNotificationMessage("Has contratado al profesional. Se ha abierto un chat.");
+      setIsNotificationModalOpen(true);
   };
 
   const handleAddPublicRequest = (req: Partial<PublicRequest>) => {
@@ -518,6 +527,11 @@ const App = () => {
             onAdd={handleAddAddress}
             onEdit={handleEditAddress}
             currentAddressId={savedAddresses.find(a => a.name === currentAddress)?.id || (currentAddress === 'Mi Ubicación Actual' ? 'current' : undefined)}
+          />
+          <NotificationModal 
+            isOpen={isNotificationModalOpen}
+            onClose={() => setIsNotificationModalOpen(false)}
+            message={notificationMessage}
           />
        </div>
        <NavBar activeTab={activeTab} onTabChange={handleTabChange} role={role} onCentralClick={handleCentralClick} hasActiveOrder={!!trackingOrder} />

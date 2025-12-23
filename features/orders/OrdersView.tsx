@@ -15,11 +15,13 @@ export const OrdersView: React.FC<{
   providers: ProviderStore[];
   onSelectProvider: (p: ProviderStore) => void;
 }> = ({ role, orders, onViewOrder, onAcceptOrder, onRejectOrder, onViewClientProfile, publicRequests, providers, onSelectProvider }) => {
+    const clientOrders = orders.filter(o => o.clientId.includes('Usuario Actual'));
+    
     return (
         <div className="absolute inset-0 bg-black flex flex-col pt-6 pb-[100px]">
             <div className="px-6 mb-6 shrink-0">
-                <h2 className="text-3xl font-black uppercase mb-1">{role === UserRole.PROVIDER ? 'Mis Pedidos' : 'Explorar'}</h2>
-                <p className="text-zinc-500 text-sm">{role === UserRole.PROVIDER ? 'Solicitudes entrantes y activas' : 'Proveedores y Servicios'}</p>
+                <h2 className="text-3xl font-black uppercase mb-1">{role === UserRole.PROVIDER ? 'Mis Pedidos' : 'Pedidos'}</h2>
+                <p className="text-zinc-500 text-sm">{role === UserRole.PROVIDER ? 'Solicitudes entrantes y activas' : 'Mis solicitudes y pedidos'}</p>
             </div>
             <div className="flex-1 overflow-y-auto px-4 space-y-4">
                 {role === UserRole.PROVIDER && (
@@ -52,6 +54,23 @@ export const OrdersView: React.FC<{
                                         </div>
                                         <div className="text-xs text-zinc-500">{req.offerPrice} • {req.description}</div>
                                     </div>
+                                ))
+                            }
+                        </div>
+                        <div className="mb-6">
+                            <h3 className="text-xs font-bold uppercase text-zinc-500 tracking-widest mb-3 px-2">Mis Pedidos</h3>
+                            {clientOrders.length === 0 ? 
+                                <div className="text-zinc-600 text-sm px-2">No tienes pedidos activos.</div> :
+                                clientOrders.map(order => (
+                                    <RequestItem 
+                                        key={order.id} 
+                                        title="Solicitud Aceptada" 
+                                        status="Esperando Revisión" 
+                                        price={order.priceEstimate} 
+                                        location={order.location} 
+                                        onClick={() => onViewOrder(order)}
+                                        date={order.createdAt}
+                                    />
                                 ))
                             }
                         </div>

@@ -464,3 +464,24 @@ export const AddressModal: React.FC<{
     </div>
   );
 };
+
+// --- NOTIFICATION MODAL ---
+export const NotificationModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  message: string;
+}> = ({ isOpen, onClose, message }) => {
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
+      <div onClick={onClose} className="absolute inset-0" />
+      <div className="relative bg-black border border-white w-full max-w-sm p-6 animate-in slide-in-from-bottom-10 shadow-2xl">
+        <div className="text-center">
+          <p className="text-white text-sm mb-6">{message}</p>
+          <Button onClick={onClose}>Aceptar</Button>
+        </div>
+      </div>
+    </div>
+  );
+};
